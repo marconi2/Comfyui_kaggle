@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Segredos / credenciais (NUNCA versionar — tokens ficam nos Secrets do Kaggle)
+*.env
+.env
+*token*
+*secret*
+.modal.toml
+.hf_token
+
+# SO
+.DS_Store
+Thumbs.db
