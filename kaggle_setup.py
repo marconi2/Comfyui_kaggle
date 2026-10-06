@@ -176,21 +176,20 @@ def detectar_datasets_base():
     if not os.path.isdir(raiz):
         return []
 
-    # 1) monta a lista de candidatos (profundidade 2, sem os.walk recursivo)
+    # 1) monta a lista de candidatos varrendo ate PROFUNDIDADE 5. O Kaggle aninha
+    #    o Dataset de formas variadas (ex.: /kaggle/input/<slug>/ OU
+    #    /kaggle/input/datasets/<user>/<slug>/), entao em vez de fixar 1-2 niveis
+    #    descemos ate achar a pasta que contem as subpastas de modelo.
+    PROF_MAX = 5
     candidatos = []
     try:
-        for x in sorted(os.listdir(raiz)):
-            p1 = os.path.join(raiz, x)
-            if not os.path.isdir(p1):
+        for atual, dirs, _ in os.walk(raiz):
+            prof = atual.rstrip("/").count("/") - raiz.rstrip("/").count("/")
+            if prof >= PROF_MAX:
+                dirs[:] = []  # nao desce mais
                 continue
-            candidatos.append(p1)
-            try:
-                for y in sorted(os.listdir(p1)):
-                    p2 = os.path.join(p1, y)
-                    if os.path.isdir(p2):
-                        candidatos.append(p2)
-            except Exception:
-                pass
+            if atual != raiz:
+                candidatos.append(atual)
     except Exception:
         return []
 
