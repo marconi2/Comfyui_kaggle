@@ -125,8 +125,11 @@ def instalar_manager():
 # --------------------------------------------------------------------------- #
 CUSTOM_NODES = [
     "https://github.com/ltdrdata/ComfyUI-Inspire-Pack",
-    # carregar modelos quantizados GGUF (Qwen/Wan DiT, text encoders, VAE)
-    "https://github.com/city96/ComfyUI-GGUF",
+    # carregar modelos quantizados GGUF (Qwen/Wan DiT, text encoders, VAE).
+    # USAMOS O FORK leejet (nao o city96): o leejet suporta o Qwen-Image-2.1
+    # (int8 convrot / input_act) nas versoes novas do ComfyUI; o city96 da o
+    # erro "forward_ggml_cast_weights() got an unexpected keyword 'input_act'".
+    "https://github.com/leejet/ComfyUI-GGUF",
     # NOTA: este repo esta marcado para ARQUIVAMENTO em 30/09/2026 — ainda
     # funcional e instalavel, mas sem suporte ativo (ver arquitetura v1).
     "https://github.com/pollockjj/ComfyUI-MultiGPU",
