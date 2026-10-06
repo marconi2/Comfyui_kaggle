@@ -50,10 +50,9 @@ GRUPO_ATUAL = "qwen-image"      # "qwen-image" | "qwen-edit" | "wan"
 PUBLICAR = False                # False = so baixa e confere. True = publica o Dataset.
 LIMPAR_APOS = False             # True = apaga o working do grupo apos publicar.
 
-# Seu usuario do KAGGLE (NAO e o do GitHub!). Vai no id do Dataset.
-# Deixe "" para o script usar automaticamente o KAGGLE_USERNAME que voce
-# definiu ao autenticar a API (recomendado — evita o erro 'Invalid Owner Id').
-USUARIO_KAGGLE = ""             # ex.: "seuusuariokaggle" (veja no kaggle.json)
+# Seu usuario do KAGGLE (NAO e o do GitHub! marconi2 e o GitHub). Vai no id do
+# Dataset. Se ficar "", o script usa o KAGGLE_USERNAME do ambiente / kaggle.json.
+USUARIO_KAGGLE = "letroprintdigital"   # usuario real da conta Kaggle
 
 # Teto de seguranca: se o grupo passar disto, o script AVISA antes de estourar
 # os 20 GB do working. Deixe com folga (working tem ~20 GB no total).
