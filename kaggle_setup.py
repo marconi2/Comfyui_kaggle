@@ -40,9 +40,37 @@ CLOUDFLARED = "/kaggle/working/cloudflared"
 # Nome do Dataset de modelos (ajuste se usar outro nome ao criar o Dataset).
 # O caminho real dentro de /kaggle/input varia (ex.: /kaggle/input/comfyui-models/
 # ou /kaggle/input/datasets/<user>/comfyui-models/comfyui-models/). Por isso o
-# script DETECTA automaticamente a pasta que contem 'checkpoints' (ver
-# detectar_dataset_base), em vez de depender de um caminho fixo.
-DATASET_DIR = ""  # preenchido em runtime por detectar_dataset_base()
+# script DETECTA automaticamente as pastas que contem subpastas de modelos (ver
+# detectar_datasets_base), em vez de depender de um caminho fixo.
+DATASET_DIR = ""   # 1o Dataset detectado (compatibilidade); preenchido em runtime
+DATASETS = []      # lista COMPLETA de bases detectadas; preenchida em runtime
+
+# Subpastas de modelos reconhecidas (ordem usada ao escrever o YAML). As chaves
+# 'diffusion_models' e 'text_encoders' sao o que faz os GGUF de Qwen/Wan e os
+# text encoders aparecerem nos nos (UnetLoaderGGUF / CLIPLoader) — ver secao 8
+# do arquitetura-recomendada-v1.md.
+SUBPASTAS_MODELOS = [
+    "checkpoints",
+    "diffusion_models",
+    "text_encoders",
+    "loras",
+    "vae",
+    "clip",
+    "unet",
+    "controlnet",
+    "upscale_models",
+]
+
+# Subconjunto "gatilho": basta UMA destas existir numa pasta para considera-la
+# um Dataset de modelos durante a deteccao.
+SUBPASTAS_GATILHO = {
+    "checkpoints",
+    "diffusion_models",
+    "text_encoders",
+    "loras",
+    "vae",
+    "unet",
+}
 
 
 # --------------------------------------------------------------------------- #
@@ -97,6 +125,13 @@ def instalar_manager():
 # --------------------------------------------------------------------------- #
 CUSTOM_NODES = [
     "https://github.com/ltdrdata/ComfyUI-Inspire-Pack",
+    # carregar modelos quantizados GGUF (Qwen/Wan DiT, text encoders, VAE)
+    "https://github.com/city96/ComfyUI-GGUF",
+    # NOTA: este repo esta marcado para ARQUIVAMENTO em 30/09/2026 — ainda
+    # funcional e instalavel, mas sem suporte ativo (ver arquitetura v1).
+    "https://github.com/pollockjj/ComfyUI-MultiGPU",
+    # wrapper de video Wan 2.2 (integra nos MultiGPU dedicados)
+    "https://github.com/kijai/ComfyUI-WanVideoWrapper",
     # adicione outros aqui, ex.:
     # "https://github.com/ltdrdata/ComfyUI-Impact-Pack",
 ]
@@ -124,60 +159,130 @@ def instalar_custom_nodes():
 # --------------------------------------------------------------------------- #
 # Apontar o ComfyUI para os modelos do Dataset (SEM copiar — read-only)
 # --------------------------------------------------------------------------- #
-def detectar_dataset_base():
-    """Procura dentro de /kaggle/input a pasta que contem 'checkpoints'.
+def detectar_datasets_base():
+    """Detecta TODAS as bases de Dataset de modelos sob /kaggle/input.
 
-    O Kaggle monta o Dataset em caminhos que variam (com/sem subpastas extras),
-    entao em vez de fixar o caminho, varremos /kaggle/input atras de uma pasta
-    'checkpoints' e usamos o pai dela como base. Retorna o caminho base ou "".
+    Antes o script parava na PRIMEIRA pasta 'checkpoints' encontrada. Agora
+    suporta VARIOS Datasets anexados: varremos /kaggle/input em profundidade 2
+    (as entradas diretas /kaggle/input/<x> E as subpastas /kaggle/input/<x>/<y>,
+    porque o Kaggle as vezes aninha o Dataset uma pasta a mais) e aceitamos como
+    base QUALQUER pasta que contenha ao menos UMA subpasta de modelos reconhecida
+    (checkpoints, diffusion_models, text_encoders, loras, vae ou unet).
+
+    Retorna a LISTA de caminhos base detectados (pode ser vazia). Nunca quebra:
+    tudo e protegido por isdir/try-except.
     """
     raiz = "/kaggle/input"
     if not os.path.isdir(raiz):
-        return ""
-    for atual, dirs, _ in os.walk(raiz):
-        if os.path.basename(atual) == "checkpoints":
-            base = os.path.dirname(atual)
-            print(f">> Dataset detectado automaticamente: {base}")
-            return base
-    return ""
+        return []
+
+    # 1) monta a lista de candidatos (profundidade 2, sem os.walk recursivo)
+    candidatos = []
+    try:
+        for x in sorted(os.listdir(raiz)):
+            p1 = os.path.join(raiz, x)
+            if not os.path.isdir(p1):
+                continue
+            candidatos.append(p1)
+            try:
+                for y in sorted(os.listdir(p1)):
+                    p2 = os.path.join(p1, y)
+                    if os.path.isdir(p2):
+                        candidatos.append(p2)
+            except Exception:
+                pass
+    except Exception:
+        return []
+
+    # 2) qualifica cada candidato: contem alguma subpasta-gatilho?
+    def eh_dataset(base):
+        try:
+            for nome in SUBPASTAS_GATILHO:
+                if os.path.isdir(os.path.join(base, nome)):
+                    return True
+        except Exception:
+            pass
+        return False
+
+    qualificados = [c for c in candidatos if eh_dataset(c)]
+
+    # 3) deduplicar: se um filho qualificou, nao incluir o pai que so qualificou
+    #    por conter esse filho (evita montar o mesmo Dataset duas vezes).
+    datasets = []
+    for base in qualificados:
+        tem_filho_qualificado = any(
+            outro != base and outro.startswith(base.rstrip("/") + "/")
+            for outro in qualificados
+        )
+        if tem_filho_qualificado:
+            # o pai so entra se ELE PROPRIO tem subpasta de modelo direta
+            # alem do filho — checagem simples: pular pais que apenas aninham.
+            continue
+        if base not in datasets:
+            datasets.append(base)
+
+    print(f">> Dataset(s) de modelos detectado(s): {len(datasets)}")
+    for d in datasets:
+        print("    -", d)
+    return datasets
+
+
+def _bloco_yaml_dataset(chave, base):
+    """Monta UM bloco top-level do extra_model_paths.yaml para uma base.
+
+    Escreve a linha de uma subpasta apenas se ela existir naquela base (o
+    ComfyUI tolera caminhos ausentes, mas assim o YAML fica limpo e previsivel).
+    """
+    linhas = [f"{chave}:", f"    base_path: {base}"]
+    for nome in SUBPASTAS_MODELOS:
+        if os.path.isdir(os.path.join(base, nome)):
+            linhas.append(f"    {nome}: {nome}")
+    return "\n".join(linhas) + "\n"
 
 
 def configurar_dataset():
-    """Cria extra_model_paths.yaml apontando para o Dataset, se ele existir.
+    """Cria extra_model_paths.yaml apontando para os Datasets, se existirem.
 
     O ComfyUI le modelos de VARIAS pastas: as do working (gravaveis, download na
-    hora) E as listadas no extra_model_paths.yaml (o Dataset, read-only). Assim os
-    modelos grandes ficam no Dataset (persistente, fora dos 20 GB) e aparecem
-    normalmente nos nos Load Checkpoint.
+    hora) E as listadas no extra_model_paths.yaml (os Datasets, read-only). Agora
+    suportamos MULTIPLOS Datasets anexados: escrevemos UM bloco top-level por
+    Dataset (chaves unicas kaggle_dataset_0, kaggle_dataset_1, ...), cada um
+    mapeando as subpastas de modelos que existirem naquele Dataset. O ComfyUI
+    mescla as varias raizes automaticamente.
     """
-    global DATASET_DIR
-    DATASET_DIR = detectar_dataset_base()
-    if not DATASET_DIR:
-        print(">> [info] Nenhum Dataset com 'checkpoints' encontrado em /kaggle/input.")
+    global DATASET_DIR, DATASETS
+    DATASETS = detectar_datasets_base()
+    if not DATASETS:
+        print(">> [info] Nenhum Dataset de modelos encontrado em /kaggle/input.")
         print(">>        Anexe o Dataset de modelos ao notebook (+ Add Input).")
+        DATASET_DIR = ""
         return
 
-    # Estrutura esperada DENTRO do Dataset: checkpoints/, loras/, vae/, etc.
-    yaml = f"""kaggle_dataset:
-    base_path: {DATASET_DIR}
-    checkpoints: checkpoints
-    loras: loras
-    vae: vae
-    clip: clip
-    unet: unet
-    controlnet: controlnet
-    upscale_models: upscale_models
-"""
+    # 1o Dataset vira o DATASET_DIR (compatibilidade com baixar_epicrealism_working)
+    DATASET_DIR = DATASETS[0]
+
+    blocos = []
+    for i, base in enumerate(DATASETS):
+        blocos.append(_bloco_yaml_dataset(f"kaggle_dataset_{i}", base))
+    yaml = "\n".join(blocos)
+
     destino = COMFY + "/extra_model_paths.yaml"
     with open(destino, "w", encoding="utf-8") as f:
         f.write(yaml)
-    print(f">> Dataset conectado via extra_model_paths.yaml")
-    # lista o que tem no dataset (ajuda a conferir)
-    ck = os.path.join(DATASET_DIR, "checkpoints")
-    if os.path.isdir(ck):
-        print(">> Modelos no Dataset (checkpoints):")
-        for f in os.listdir(ck):
-            print("    -", f)
+    print(">> Dataset(s) conectado(s) via extra_model_paths.yaml")
+
+    # lista o que tem em cada Dataset (ajuda a conferir)
+    for i, base in enumerate(DATASETS):
+        print(f">> Dataset {i}: {base}")
+        for pasta in ("checkpoints", "diffusion_models"):
+            caminho = os.path.join(base, pasta)
+            if os.path.isdir(caminho):
+                print(f"   {pasta}:")
+                try:
+                    for f in os.listdir(caminho):
+                        print("    -", f)
+                except Exception:
+                    pass
 
 
 # --------------------------------------------------------------------------- #
