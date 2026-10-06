@@ -123,19 +123,19 @@ MODELOS = [
         "grupo": "qwen-image",
         "origem": "hf",
         "subpasta": "text_encoders",
-        "repo_id": "Comfy-Org/Qwen-Image_ComfyUI",
-        "arquivo": "split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
-        "obs": "Text encoder Qwen2.5-VL fp8_scaled (~9,4 GB) — roda na T4. NAO usar "
-               "a variante 'nvfp4' (so GPU Blackwell/RTX 50xx). Pode ficar na RAM/CPU. "
-               "Confirmado na API do HF.",
+        "repo_id": "Comfy-Org/Qwen-Image-2.1",
+        "arquivo": "text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+        "obs": "Text encoder Qwen3-VL-8B INT8 ConvRot (~9,35 GB) — ESTE e o encoder "
+               "CORRETO do Qwen-Image-2.1 (dim 4096). O 'qwen_2.5_vl' NAO serve "
+               "para o 2.1 (dim 3584 -> erro normalized_shape). Repo oficial Comfy-Org.",
     },
     {
         "grupo": "qwen-image",
         "origem": "hf",
         "subpasta": "vae",
-        "repo_id": "Comfy-Org/Qwen-Image_ComfyUI",
-        "arquivo": "split_files/vae/qwen_image_vae.safetensors",  # ~250 MB, confirmado na API do HF
-        "obs": "VAE do Qwen-Image (~250 MB). Confirmado na API do HF.",
+        "repo_id": "Comfy-Org/Qwen-Image-2.1",
+        "arquivo": "vae/qwen_image_2.1_vae_bf16.safetensors",  # ~0,68 GB, VAE do 2.1
+        "obs": "VAE do Qwen-Image-2.1 bf16 (~0,68 GB). Repo oficial Comfy-Org.",
     },
 
     # ======================= GRUPO: qwen-edit =============================== #
