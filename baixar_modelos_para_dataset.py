@@ -364,6 +364,22 @@ def baixar_civitai(m):
 # --------------------------------------------------------------------------- #
 # Metadata + publicacao do Dataset
 # --------------------------------------------------------------------------- #
+def limpar_cache_hf():
+    """Remove as pastas .cache/huggingface deixadas pelo hf_hub_download.
+
+    Elas so tem locks/metadados (0 bytes uteis) e NAO devem ir para o Dataset —
+    poluem a estrutura. Varre a raiz do grupo e apaga toda pasta '.cache'.
+    """
+    raiz = dest_raiz_grupo()
+    removidas = 0
+    for pasta, dirs, _ in os.walk(raiz):
+        if ".cache" in dirs:
+            shutil.rmtree(os.path.join(pasta, ".cache"), ignore_errors=True)
+            removidas += 1
+    if removidas:
+        print(f">> limpei {removidas} pasta(s) .cache/huggingface antes de publicar")
+
+
 def escrever_metadata():
     meta = {
         "title": f"comfyui-{GRUPO_ATUAL}",
@@ -392,16 +408,20 @@ def publicar():
         print(">>        Confira os arquivos e os PLACEHOLDERs, depois PUBLICAR=True.")
         return
 
+    limpar_cache_hf()
     escrever_metadata()
-    # --dir-mode zip preserva a estrutura de pastas sem compactar tudo num zip
-    # unico gigante (bom para modelos de varios GB).
+    # --dir-mode skip: sobe os arquivos COMO ESTAO (sem compactar). Essencial para
+    # modelos: o Dataset montado em /kaggle/input espelha EXATAMENTE a estrutura de
+    # pastas (diffusion_models/, text_encoders/, vae/...), que e o que o ComfyUI e
+    # o auto-detect do kaggle_setup.py esperam. Com 'zip' os arquivos ficariam
+    # dentro de .zip e dependeriam da descompactacao automatica (fragil p/ modelos).
     if dataset_existe():
         print(f">> Dataset {dataset_id()} ja existe — enviando NOVA VERSAO...")
         run(["kaggle", "datasets", "version", "-p", raiz,
-             "-m", f"atualiza {GRUPO_ATUAL}", "--dir-mode", "zip"], check=False)
+             "-m", f"atualiza {GRUPO_ATUAL}", "--dir-mode", "skip"], check=False)
     else:
         print(f">> Publicando Dataset {dataset_id()} (1a vez)...")
-        run(["kaggle", "datasets", "create", "-p", raiz, "--dir-mode", "zip"],
+        run(["kaggle", "datasets", "create", "-p", raiz, "--dir-mode", "skip"],
             check=False)
     print(">> OBS: apos publicar, ANEXE o Dataset ao notebook do ComfyUI "
           "(+ Add Input) para o kaggle_setup.py detecta-lo.")
