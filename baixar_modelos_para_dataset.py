@@ -113,11 +113,12 @@ MODELOS = [
         "grupo": "qwen-image",
         "origem": "hf",
         "subpasta": "diffusion_models",
-        "repo_id": "Abiray/Qwen-Image-2.1-GGUF",
-        "arquivo": "qwen_image_2.1_Q6_K.gguf",  # confirmado na API do HF (2026-09-20)
-        "obs": "Qwen-Image-2.1 (7B) Q6_K (~6 GB). Mais qualidade que o Q4_K_M, "
-               "porem mais lento na T4. Se ficar lento, troque para "
-               "'qwen_image_2.1_Q4_K_M.gguf' (mesmo repo).",
+        "repo_id": "Comfy-Org/Qwen-Image-2.1",
+        "arquivo": "diffusion_models/qwen_image_2.1_int8_convrot.safetensors",  # ~7,25 GB
+        "obs": "Qwen-Image-2.1 DiT INT8 ConvRot (~7,25 GB). NAO e GGUF: carrega "
+               "com o no NATIVO 'Load Diffusion Model' (nao o Unet GGUF). Combina "
+               "com o encoder qwen3vl int8_convrot. Evita o conflito GGUF<->INT8 "
+               "(erro input_act). Roda em Turing+ (T4 ok). Repo oficial Comfy-Org.",
     },
     {
         "grupo": "qwen-image",
