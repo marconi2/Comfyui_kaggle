@@ -50,7 +50,10 @@ GRUPO_ATUAL = "qwen-image"      # "qwen-image" | "qwen-edit" | "wan"
 PUBLICAR = False                # False = so baixa e confere. True = publica o Dataset.
 LIMPAR_APOS = False             # True = apaga o working do grupo apos publicar.
 
-USUARIO_KAGGLE = "marconi2"     # seu usuario do Kaggle (vai no id do Dataset)
+# Seu usuario do KAGGLE (NAO e o do GitHub!). Vai no id do Dataset.
+# Deixe "" para o script usar automaticamente o KAGGLE_USERNAME que voce
+# definiu ao autenticar a API (recomendado — evita o erro 'Invalid Owner Id').
+USUARIO_KAGGLE = ""             # ex.: "seuusuariokaggle" (veja no kaggle.json)
 
 # Teto de seguranca: se o grupo passar disto, o script AVISA antes de estourar
 # os 20 GB do working. Deixe com folga (working tem ~20 GB no total).
@@ -222,8 +225,31 @@ def dest_raiz_grupo() -> str:
     return os.path.join(WORK_RAIZ, f"comfyui-{GRUPO_ATUAL}")
 
 
+def usuario_kaggle() -> str:
+    """Usuario dono do Dataset. Usa USUARIO_KAGGLE se preenchido; senao pega do
+    ambiente (KAGGLE_USERNAME) definido ao autenticar a API — assim o id SEMPRE
+    bate com quem autenticou, evitando 'Invalid Owner Id'."""
+    if USUARIO_KAGGLE.strip():
+        return USUARIO_KAGGLE.strip()
+    env = os.environ.get("KAGGLE_USERNAME", "").strip()
+    if env:
+        return env
+    # ultimo recurso: tenta ler o ~/.kaggle/kaggle.json
+    try:
+        caminho = os.path.expanduser("~/.kaggle/kaggle.json")
+        with open(caminho, encoding="utf-8") as f:
+            return json.load(f).get("username", "").strip()
+    except Exception:
+        return ""
+
+
 def dataset_id() -> str:
-    return f"{USUARIO_KAGGLE}/comfyui-{GRUPO_ATUAL}"
+    u = usuario_kaggle()
+    if not u:
+        print(">> [AVISO] usuario do Kaggle vazio! Defina USUARIO_KAGGLE no script "
+              "ou KAGGLE_USERNAME no ambiente, senao a publicacao falha "
+              "('Invalid Owner Id').")
+    return f"{u}/comfyui-{GRUPO_ATUAL}"
 
 
 def modelos_do_grupo():
@@ -410,18 +436,18 @@ def publicar():
 
     limpar_cache_hf()
     escrever_metadata()
-    # --dir-mode skip: sobe os arquivos COMO ESTAO (sem compactar). Essencial para
-    # modelos: o Dataset montado em /kaggle/input espelha EXATAMENTE a estrutura de
-    # pastas (diffusion_models/, text_encoders/, vae/...), que e o que o ComfyUI e
-    # o auto-detect do kaggle_setup.py esperam. Com 'zip' os arquivos ficariam
-    # dentro de .zip e dependeriam da descompactacao automatica (fragil p/ modelos).
+    # --dir-mode zip: empacota cada subpasta para o upload (necessario — 'skip'
+    # IGNORA as subpastas e sobe um Dataset vazio). Ao ANEXAR o Dataset a um
+    # notebook, o Kaggle descompacta e os arquivos ficam acessiveis como
+    # diretorio (diffusion_models/, text_encoders/, vae/...), que e o que o
+    # ComfyUI e o auto-detect do kaggle_setup.py esperam.
     if dataset_existe():
         print(f">> Dataset {dataset_id()} ja existe — enviando NOVA VERSAO...")
         run(["kaggle", "datasets", "version", "-p", raiz,
-             "-m", f"atualiza {GRUPO_ATUAL}", "--dir-mode", "skip"], check=False)
+             "-m", f"atualiza {GRUPO_ATUAL}", "--dir-mode", "zip"], check=False)
     else:
         print(f">> Publicando Dataset {dataset_id()} (1a vez)...")
-        run(["kaggle", "datasets", "create", "-p", raiz, "--dir-mode", "skip"],
+        run(["kaggle", "datasets", "create", "-p", raiz, "--dir-mode", "zip"],
             check=False)
     print(">> OBS: apos publicar, ANEXE o Dataset ao notebook do ComfyUI "
           "(+ Add Input) para o kaggle_setup.py detecta-lo.")
