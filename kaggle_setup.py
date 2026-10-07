@@ -118,6 +118,30 @@ def instalar_manager():
         print(">> Manager ja existe")
 
 
+def definir_idioma_ingles():
+    """Fixa o idioma da UI do ComfyUI em INGLES (Comfy.Locale = 'en').
+
+    Sem isso o ComfyUI usa o idioma do navegador (pt-BR) e os nos aparecem
+    traduzidos. Como o /kaggle/working some a cada sessao, reescrevemos a
+    config toda vez. Mescla com o JSON existente (nao sobrescreve outras chaves).
+    """
+    import json
+    cfg_dir = COMFY + "/user/default"
+    os.makedirs(cfg_dir, exist_ok=True)
+    cfg = cfg_dir + "/comfy.settings.json"
+    dados = {}
+    if os.path.exists(cfg):
+        try:
+            with open(cfg, encoding="utf-8") as f:
+                dados = json.load(f)
+        except Exception:
+            dados = {}
+    dados["Comfy.Locale"] = "en"
+    with open(cfg, "w", encoding="utf-8") as f:
+        json.dump(dados, f, ensure_ascii=False, indent=2)
+    print(">> Idioma da UI fixado em ingles (Comfy.Locale = en)")
+
+
 # --------------------------------------------------------------------------- #
 # Custom nodes extras (fixos) — reinstalados a cada sessao, pois o working some.
 # Para ADICIONAR um node: coloque a URL do repositorio git na lista CUSTOM_NODES.
@@ -361,6 +385,7 @@ def subir_servidor_e_tunel(cf):
 def main():
     instalar_comfyui()
     instalar_manager()
+    definir_idioma_ingles()     # fixa a UI em ingles (en) toda sessao
     instalar_custom_nodes()     # nodes fixos (Inspire Pack etc.) — reinstala sempre
     configurar_dataset()        # aponta para o Dataset (modelos grandes), se anexado
     baixar_epicrealism_working()  # modelo leve para aprender agora
