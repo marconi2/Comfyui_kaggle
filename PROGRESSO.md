@@ -93,29 +93,17 @@ Latent->KSampler; KSampler->VAEDecode(samples); VAE->VAEDecode(vae); ->SaveImage
 - Custom nodes instalados: Inspire, ComfyUI-GGUF (leejet), ComfyUI-MultiGPU,
   ComfyUI-WanVideoWrapper. OK
 - Encoder/VAE do Qwen 2.1 carregam sem erro de dimensão. OK
+- **QWEN-IMAGE-2.1 GERANDO IMAGEM NA T4! (2026-10-06)** — DiT INT8 ConvRot via
+  "Load Diffusion Model" nativo + encoder qwen3vl int8 + VAE 2.1, cfg 1. FASE 1 OK.
+- epiCRealism (SD 1.5): baixado automático pelo setup pra checkpoints/ do working
+  SE o Secret CIVITAI_TOKEN estiver anexado. Usa nó "Load Checkpoint" comum.
 
 ## PRÓXIMO PASSO (onde paramos)
 
-1. **Atualizar o Dataset** `comfyui-qwen-image` com o modelo INT8 ConvRot (trocar
-   o Q6 GGUF). Rodar `baixar_modelos_para_dataset.py` com PUBLICAR=True (grupo
-   qwen-image já aponta pro int8_convrot). Célula:
-   ```python
-   !wget -q https://raw.githubusercontent.com/marconi2/Comfyui_kaggle/main/baixar_modelos_para_dataset.py -O baixar_modelos_para_dataset.py
-   import os
-   from kaggle_secrets import UserSecretsClient
-   sec = UserSecretsClient()
-   os.environ["KAGGLE_USERNAME"] = "letroprintdigital"
-   os.environ["KAGGLE_KEY"] = sec.get_secret("comfyui")
-   import importlib, baixar_modelos_para_dataset as b
-   importlib.reload(b); b.PUBLICAR = True; b.main()
-   ```
-   STATUS: nova versão publicada; CONFIRMAR que o int8_convrot (~7,25GB) baixou/subiu.
-2. Subir o ComfyUI (notebook com GPU T4 x2 + Internet On + Dataset anexado na
-   versão NOVA). Rodar o setup (wget kaggle_setup.py).
-3. Montar o workflow do Qwen (ver seção acima), com **Load Diffusion Model**
-   (nativo) pro INT8 — NÃO o Unet GGUF. cfg 1. Queue Prompt.
-4. Validar que a 1ª imagem gera (cold start demora, T4 é lenta). Objetivo da
-   fase atual: confirmar Qwen 2.1 funcionando ponta a ponta na T4.
+FASE 1 (Qwen txt2img) CONCLUÍDA. ✅ Próximas fases:
+1. (opcional) Explorar o Qwen: resoluções, prompts, LoRAs de poucos passos.
+2. Grupo `comfyui-qwen-edit` (Qwen-Image-Edit-2511) — edição de imagem.
+3. Grupo `comfyui-wan` (Wan 2.2 vídeo) — aí SIM usa nós GGUF/MultiGPU.
 
 ## DEPOIS (fases seguintes)
 
