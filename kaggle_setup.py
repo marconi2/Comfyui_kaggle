@@ -400,33 +400,33 @@ def esperar_comfyui_pronto(timeout=300):
     return False
 
 
+COMFY_LOG = "/kaggle/working/comfyui.log"
+
+
 def subir_servidor_e_tunel(cf):
     run("pkill -f main.py")
     run("pkill -f cloudflared")
     time.sleep(3)
 
     os.chdir(COMFY)
-    # start_new_session=True -> o ComfyUI sobrevive mesmo se a celula for parada,
-    # e o kernel NAO fica preso (sem comfy.wait() no fim).
+    # IMPORTANTE: a saida do ComfyUI vai para um ARQUIVO de log, NAO para o stdout
+    # da celula. Motivo: rodando em background (start_new_session), quando a celula
+    # termina o cano de stdout fecha; ai o tqdm (barra de progresso) tenta escrever
+    # nele e estoura 'BrokenPipeError: Broken pipe', MATANDO a geracao. Escrevendo
+    # num arquivo, o cano nunca fecha e o kernel continua livre.
+    logf = open(COMFY_LOG, "w")
     comfy = subprocess.Popen(["python", "main.py", "--listen", "127.0.0.1", "--port", "8188"],
-                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                             stdout=logf, stderr=subprocess.STDOUT,
                              start_new_session=True)
+    print(f">> Subindo ComfyUI (log em {COMFY_LOG})...")
 
-    def _log():
-        for l in comfy.stdout:
-            print("[comfy]", l, end="")
-            if "Starting server" in l:
-                break
-    threading.Thread(target=_log, daemon=True).start()
-    print(">> Subindo ComfyUI...")
-
-    # ESPERA o ComfyUI RESPONDER (polling), em vez de um sleep fixo de 45s.
-    # Assim o tunel so abre quando o servidor ja aceita conexao -> sem 1033.
+    # ESPERA o ComfyUI RESPONDER (polling), em vez de sleep fixo -> sem 1033.
     esperar_comfyui_pronto()
 
     abrir_tunel(cf)
     print(">> ComfyUI rodando em background. Se a URL ainda der 1033, aguarde ~30s "
           "e de F5; ou rode numa NOVA celula:\n   import setup as s; s.novo_tunel()")
+    print(f">> Para ver o log do ComfyUI: !tail -f {COMFY_LOG}")
 
 
 def main():
