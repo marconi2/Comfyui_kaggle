@@ -138,6 +138,19 @@ MODELOS = [
         "arquivo": "vae/qwen_image_2.1_vae_bf16.safetensors",  # ~0,68 GB, VAE do 2.1
         "obs": "VAE do Qwen-Image-2.1 bf16 (~0,68 GB). Repo oficial Comfy-Org.",
     },
+    {
+        "grupo": "qwen-image",
+        "origem": "hf",
+        "subpasta": "loras",
+        "repo_id": "NidAll/pruna-image-2.1-comfyui-loras",
+        "arquivo": "p_qwen_image_2.1_8step_v0.1_comfyui.safetensors",  # ~0,34 GB
+        "obs": "LoRA Lightning (Pruna) 8 steps para Qwen-Image-2.1 — ACELERA ~3x na "
+               "T4 (25 -> 8 steps). Pronta para ComfyUI (nao precisa conversao). "
+               "No KSampler: steps=8, cfg=1. Alternativa mais rapida/menos qualidade: "
+               "'p_qwen_image_2.1_5step_v0.1_comfyui.safetensors' (steps=5). "
+               "Repo oficial NidAll/pruna (compativel com o 2.1, NAO usar a do lightx2v "
+               "que e do Qwen-Image original 20B).",
+    },
 
     # ======================= GRUPO: qwen-edit =============================== #
     # Qwen-Image-Edit-2511 GGUF Q4_K_M + LoRA Lightning. O encoder/VAE Qwen do
