@@ -376,6 +376,30 @@ def novo_tunel():
     return abrir_tunel(CLOUDFLARED)
 
 
+def esperar_comfyui_pronto(timeout=300):
+    """Espera o ComfyUI RESPONDER de verdade na porta 8188 (nao so 'subir').
+
+    O 1033 na 1a tentativa acontecia porque o tunel abria apos um sleep FIXO de
+    45s, mas o ComfyUI com os custom nodes (GGUF/MultiGPU/WanVideoWrapper) demora
+    MAIS que isso para responder. Aqui fazemos polling ate /system_stats devolver
+    200 — so entao o tunel aponta para um servidor que ja responde.
+    """
+    import urllib.request
+    print(">> Aguardando o ComfyUI responder na porta 8188...")
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:8188/system_stats", timeout=3) as r:
+                if r.status == 200:
+                    print(f">> ComfyUI PRONTO (respondeu em {int(time.time()-t0)}s).")
+                    return True
+        except Exception:
+            pass
+        time.sleep(3)
+    print(f">> [AVISO] ComfyUI nao respondeu em {timeout}s — abrindo o tunel mesmo assim.")
+    return False
+
+
 def subir_servidor_e_tunel(cf):
     run("pkill -f main.py")
     run("pkill -f cloudflared")
@@ -394,12 +418,15 @@ def subir_servidor_e_tunel(cf):
             if "Starting server" in l:
                 break
     threading.Thread(target=_log, daemon=True).start()
-    print(">> Subindo ComfyUI (aguarde ~45s)...")
-    time.sleep(45)
+    print(">> Subindo ComfyUI...")
+
+    # ESPERA o ComfyUI RESPONDER (polling), em vez de um sleep fixo de 45s.
+    # Assim o tunel so abre quando o servidor ja aceita conexao -> sem 1033.
+    esperar_comfyui_pronto()
 
     abrir_tunel(cf)
-    print(">> ComfyUI rodando em background. Se a URL der 1033, rode numa NOVA "
-          "celula:\n   import setup as s; s.novo_tunel()")
+    print(">> ComfyUI rodando em background. Se a URL ainda der 1033, aguarde ~30s "
+          "e de F5; ou rode numa NOVA celula:\n   import setup as s; s.novo_tunel()")
 
 
 def main():
