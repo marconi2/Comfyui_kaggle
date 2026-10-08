@@ -353,14 +353,40 @@ def baixar_cloudflared():
     return CLOUDFLARED
 
 
+def abrir_tunel(cf):
+    """Sobe UM tunel cloudflared apontando para o ComfyUI (porta 8188) e imprime
+    a URL. Nao bloqueia o kernel. Use tambem para gerar um tunel NOVO quando o
+    atual der erro 1033 (sem reiniciar o ComfyUI)."""
+    run("pkill -f cloudflared")  # derruba tuneis antigos (nao mexe no ComfyUI)
+    time.sleep(2)
+    tun = subprocess.Popen([cf, "tunnel", "--url", "http://127.0.0.1:8188"],
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    for l in tun.stdout:
+        print("[tunel]", l, end="")
+        m = re.search(r"https://[-\w]+\.trycloudflare\.com", l)
+        if m:
+            print("\n\n>>> ABRA NO NAVEGADOR:", m.group(0), "\n")
+            break
+    return tun
+
+
+def novo_tunel():
+    """Atalho para quando der 1033: gera um tunel NOVO sem reiniciar o ComfyUI.
+    Uso numa celula: `import setup as s; s.novo_tunel()`."""
+    return abrir_tunel(CLOUDFLARED)
+
+
 def subir_servidor_e_tunel(cf):
     run("pkill -f main.py")
     run("pkill -f cloudflared")
     time.sleep(3)
 
     os.chdir(COMFY)
+    # start_new_session=True -> o ComfyUI sobrevive mesmo se a celula for parada,
+    # e o kernel NAO fica preso (sem comfy.wait() no fim).
     comfy = subprocess.Popen(["python", "main.py", "--listen", "127.0.0.1", "--port", "8188"],
-                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                             start_new_session=True)
 
     def _log():
         for l in comfy.stdout:
@@ -371,15 +397,9 @@ def subir_servidor_e_tunel(cf):
     print(">> Subindo ComfyUI (aguarde ~45s)...")
     time.sleep(45)
 
-    tun = subprocess.Popen([cf, "tunnel", "--url", "http://127.0.0.1:8188"],
-                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    for l in tun.stdout:
-        print("[tunel]", l, end="")
-        m = re.search(r"https://[-\w]+\.trycloudflare\.com", l)
-        if m:
-            print("\n\n>>> ABRA NO NAVEGADOR:", m.group(0), "\n")
-            break
-    comfy.wait()
+    abrir_tunel(cf)
+    print(">> ComfyUI rodando em background. Se a URL der 1033, rode numa NOVA "
+          "celula:\n   import setup as s; s.novo_tunel()")
 
 
 def main():
