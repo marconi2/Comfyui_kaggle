@@ -151,3 +151,78 @@ dos termos:
   **nunca** para o Kaggle.
 
 Esse cuidado está alinhado ao alerta do [`README.md`](README.md).
+
+---
+
+## MÉTODO VISUAL (sem código) — adicionar modelo/LoRA pela interface
+
+> Passo a passo para adicionar um arquivo (ex.: LoRA) a um Dataset usando SÓ a
+> interface do Kaggle, sem rodar script. Ideal para arquivos pequenos (LoRAs ~300 MB).
+> Para ficar independente: o pulo do gato é (a) a URL de download do HF e (b) pôr o
+> arquivo na PASTA certa (`loras/`, `diffusion_models/`, etc.).
+
+### Regra de ouro das pastas
+O ComfyUI só acha o arquivo se ele estiver na subpasta certa:
+- LoRA → `loras/`
+- modelo DiT (Qwen/Wan) → `diffusion_models/`
+- text encoder → `text_encoders/`
+- VAE → `vae/`
+- checkpoint SD 1.5 → `checkpoints/`
+
+### Passo a passo (ex.: LoRA Lightning do Qwen 2.1)
+
+1. **Baixar do HuggingFace no PC**
+   - Abra o repo, ex.: https://huggingface.co/NidAll/pruna-image-2.1-comfyui-loras
+   - Aba **Files and versions**
+   - Clique no ícone de download (↓) do arquivo
+     (`p_qwen_image_2.1_8step_v0.1_comfyui.safetensors`, ~340 MB)
+
+2. **Organizar numa pasta com o nome da subpasta**
+   - No PC, crie uma pasta chamada EXATAMENTE `loras` (minúsculo)
+   - Mova o `.safetensors` para dentro dela → `loras/arquivo.safetensors`
+
+3. **Criar um Dataset novo só de LoRAs (recomendado)**
+   - Kaggle → **Create → New Dataset** (ou kaggle.com/datasets → New Dataset)
+   - **Arraste a PASTA `loras` inteira** (não só o arquivo) para a janela de upload
+     — isso preserva a estrutura `loras/arquivo.safetensors`
+   - Título: `comfyui-qwen-loras` → **Create**
+   - *Por que Dataset separado:* evita re-subir os ~15 GB do Dataset grande; o
+     `kaggle_setup.py` detecta múltiplos Datasets e junta tudo.
+
+4. **Usar no notebook**
+   - Painel direito → **+ Add Input** → adicione `comfyui-qwen-loras`
+   - (mantenha também o `comfyui-qwen-image` anexado)
+   - Rode o `kaggle_setup.py`; a LoRA aparece no nó **Load LoRA** do ComfyUI.
+
+### Alternativa: adicionar ao Dataset existente (New Version)
+- Abra o Dataset → **New Version** → arraste a pasta `loras` → publique.
+- *Cuidado:* dependendo do caso, pode exigir re-subir o Dataset todo (lento se são
+  15 GB). Para arquivos pequenos, o Dataset separado (passo 3) costuma ser melhor.
+
+### Como pegar a URL de qualquer modelo do HuggingFace
+Na aba **Files** do repo → 3 pontinhos ao lado do arquivo → **Copy download link**.
+O padrão é sempre: `https://huggingface.co/<repo>/resolve/main/<caminho_do_arquivo>`.
+
+---
+
+## ATUALIZAÇÃO IMPORTANTE (estado real do projeto — out/2026)
+
+O que foi validado na prática difere do plano v1 em pontos-chave:
+
+- **Qwen roda em INT8 ConvRot NATIVO (não GGUF).** O DiT é
+  `qwen_image_2.1_int8_convrot.safetensors`, carregado pelo nó **"Load Diffusion
+  Model"** (NÃO o Unet Loader GGUF). Encoder `qwen3vl_8b_int8_convrot` (CLIPLoader,
+  type `qwen_image`). VAE `qwen_image_2.1_vae_bf16`. Misturar GGUF + encoder INT8
+  dá erro `input_act`.
+- **Qwen-Image-2.1 já faz EDIÇÃO nativamente** (troca de roupa, inpainting,
+  multi-referência até 10-16 imagens) via nó `TextEncodeQwenImage21`. NÃO precisa
+  do Qwen-Image-Edit-2511 separado.
+- **A T4 é lenta** (~285s/imagem a 25 steps). A única alavanca real de velocidade é
+  a **LoRA Lightning** (8 steps → ~3× mais rápido). Trocar quant (Q5/Q6/Q8/BF16) NÃO
+  acelera; BF16 nem cabe na T4. Encoder na CPU libera VRAM mas não acelera.
+- **LoRA Lightning certa para o 2.1:** `NidAll/pruna-image-2.1-comfyui-loras`
+  (arquivos `p_qwen_image_2.1_8step...` ou `5step...`). A LoRA do `lightx2v` é para
+  o Qwen-Image ORIGINAL (20B), NÃO serve no 2.1. Casar steps do KSampler com a LoRA
+  (8step → 8 steps; cfg 1).
+- **Qwen-Image 3.0 é fechado/pago (só API)** — não roda no Kaggle. O 2.1 é o modelo
+  aberto mais novo que roda local.
